@@ -2,7 +2,7 @@
 	let hcpId = "782f1bcd-9f3f-408a-af1b-cd9f3f908a98"
     let svcFilter = (left, right, rightMost) => {
         let filter = {
-            '$type':'ServiceByHcPartyTagCodeDateFilter',
+            '$type':'PLACEHOLDER', //ServiceByHcPartyTagCodeDateFilter', // HealthElementByHcPartyTagCodeFilter
             'healthcarePartyId':hcpId
         }
         if (left.indexOf(':') === 0) {
