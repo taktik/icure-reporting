@@ -55,7 +55,7 @@ const privateKey = '308204bd020100300d06092a864886f70d0101010500048204a7308204a3
 
 const requestToFilterTypeMap = {'SVC': 'ServiceByHcPartyTagCodeDateFilter', 'HE': 'HealthElementByHcPartyTagCodeFilter'}
 
-
+cryptoicc.loadKeyPairsAsTextInBrowserLocalStorage(hcpartyId, cryptoicc.utils.hex2ua(privateKey))
 
 async function rewriteFilter(filter: any, first: boolean, mainEntity: string, subEntity: string): Promise<any> {
 	try {
