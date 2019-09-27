@@ -1,5 +1,5 @@
 {
-	let hcpId = "782f1bcd-9f3f-408a-af1b-cd9f3f908a98"
+	let hcpId = options.hcpId
     let svcFilter = (left, right, rightMost) => {
         let filter = {
             '$type':'PLACEHOLDER', //ServiceByHcPartyTagCodeDateFilter', // HealthElementByHcPartyTagCodeFilter
@@ -105,7 +105,7 @@ ComparisonExpression
 OperandSuffix
     = "{" _ left:OptionalNUM _ "->" _ right:OptionalNUM _ "}" {
         return [left, right]
-    } 
+    }
     / "{" _ "<" months:AGE _ "}" {
         return [monthsToBirthDate(months), ""]
     }

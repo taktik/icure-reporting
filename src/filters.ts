@@ -77,12 +77,29 @@ vorpal
 vorpal
 	.command('query [input...]', 'Queries iCure')
 	.action(async function (this: CommandInstance, args: Args) {
-		const input = args.input.join(' ')
-		this.log('Parsing query: ' + input)
-		const parsedInput = parser.parse(input)
-		const output = await rewriteFilter(parsedInput, true, "", "")
-		const finalResult = await handleFinalRequest(output)
-		this.log((JSON as any).colorStringify(finalResult.rows.map((p:PatientDto) => ({ id: p.id, firstName: p.firstName, lastName: p.lastName, dateOfBirth: p.dateOfBirth})), null, ' '))
+		try {
+			const start = +new Date()
+			const hcp = await api.hcpartyicc.getCurrentHealthcareParty()
+			if (!hcp) {
+				console.error('You are not logged in')
+				return
+			}
+			const input = args.input.join(' ')
+			this.log('Parsing query: ' + input)
+			const parsedInput = parser.parse(input, {hcpId: hcp.parentId || hcp.id})
+			const output = await rewriteFilter(parsedInput, true, "", "")
+			const finalResult = await handleFinalRequest(output)
+			this.log((JSON as any).colorStringify(finalResult.rows.map((p: PatientDto) => ({
+				id: p.id,
+				firstName: p.firstName,
+				lastName: p.lastName,
+				dateOfBirth: p.dateOfBirth
+			})), null, ' '))
+			const stop = +new Date()
+			this.log(`${finalResult.rows.length} items returned in ${stop - start} ms`)
+		} catch (e) {
+			console.error('Unexpected error', e)
+		}
 	});
 
 vorpal
