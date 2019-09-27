@@ -86,6 +86,12 @@ vorpal
 	});
 
 vorpal
+	.command('whoami', 'Logged user info')
+	.action(async function (this: CommandInstance, args: Args) {
+		this.log((await api.usericc.getCurrentUser()).login + '@' + options.host)
+	});
+
+vorpal
 	.delimiter('icure-reporting$')
 	.show();
 
@@ -118,11 +124,11 @@ async function rewriteFilter(filter: any, first: boolean, mainEntity: string, su
 			} else if (filter.entity === "HE") {
 				const rewritten = await rewriteFilter(filter.filter, first, mainEntity, filter.entity || subEntity)
 				const body = {filter: rewritten}
-				console.log("Request HE: " + JSON.stringify(body))
+				// Use a logger instead console.log("Request HE: " + JSON.stringify(body))
 				const helementOutput = await api.helementicc.filterBy(body)
 				if (mainEntity === "PAT") {
-					console.log("helement body: " + JSON.stringify(helementOutput))
-					console.log("helementOutput: " + JSON.stringify(helementOutput))
+					//console.log("helement body: " + JSON.stringify(helementOutput))
+					//console.log("helementOutput: " + JSON.stringify(helementOutput))
 					const patientIds: string[] = await helementsToPatientIds(helementOutput)
 					return {$type: "PatientByIdsFilter", ids: patientIds}
 					//return {}
