@@ -1,8 +1,8 @@
 {
 	let hcpId = options.hcpId
-    let svcFilter = (left, right, rightMost) => {
+    let requestFilter = (left, right, rightMost) => {
         let filter = {
-            '$type':'PLACEHOLDER', //ServiceByHcPartyTagCodeDateFilter', // HealthElementByHcPartyTagCodeFilter
+            '$type':'PLACEHOLDER', //ServiceByHcPartyTagCodeDateFilter, HealthElementByHcPartyTagCodeFilter...
             'healthcarePartyId':hcpId
         }
         if (left.indexOf(':') === 0) {
@@ -34,22 +34,6 @@
         var d = birthDate.getDate();
         let formattedDate = '' + y + (m < 10 ? '0' : '') + m + (d < 10 ? '0' : '') + d;
         return formattedDate
-        //let birthDateEpoch = parseInt(birthDate.getTime()/1000)
-    }
-
-    let heFilter = (left, right) => {
-        let filter = {
-            '$type':'HealthElementByHcPartyTagCodeFilter',
-            'healthcarePartyId':hcpId
-        }
-        if (left.indexOf(':') === 0) {
-            filter.tagCode = right
-            filter.tagType = left.substr(1)
-        } else {
-            filter.codeCode = right
-            filter.codeType = left
-        }
-        return filter
     }
 }
 Pipe
@@ -98,10 +82,10 @@ ComparisonExpression
 / left:Operand _ op:Comparison _ right:Operand rightMost:OperandSuffix {
 	switch(op) {
     	case '==':
-        	return svcFilter(left, right, rightMost)
+        	return requestFilter(left, right, rightMost)
         case '!=':
         	return {
-		      '$type':'ComplementFilter', 'subSet': svcFilter(left, right, rightMost)
+		      '$type':'ComplementFilter', 'subSet': requestFilter(left, right, rightMost)
             }
         case '<':
         case '>':

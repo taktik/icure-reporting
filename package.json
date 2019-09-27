@@ -46,7 +46,7 @@
 	"dependencies": {
 		"colors": "^1.4.0",
 		"date-fns": "^2.3.0",
-		"icc-api": "^1.0.176",
+		"icc-api": "^1.0.177",
 		"lodash": "^4.17.15",
 		"node-fetch": "^2.6.0",
 		"node-json-color-stringify": "^1.1.0",

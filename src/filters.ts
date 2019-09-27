@@ -3,6 +3,7 @@ import {
 	HealthElementDto,
 	ServiceDto,
 	PatientDto,
+	InvoiceDto,
 	UserDto,
 	PatientPaginatedList,
 	InvoicePaginatedList,
@@ -20,6 +21,11 @@ require('node-json-color-stringify')
 const fs = require('fs')
 const vorpal = new (require('vorpal'))()
 import { Args, CommandInstance } from 'vorpal'
+
+// TODO use a logger
+// TODO patient merges
+// TODO & -> | -> -
+// TODO bundle pkg and send it
 
 const localStorage = (global as any).localStorage = new (require('node-localstorage').LocalStorage)('/tmp')
 ;(global as any).Storage = ''
@@ -144,7 +150,7 @@ const parser = Peg.generate(grammar)
 
 const debug = false
 
-const requestToFilterTypeMap = { 'SVC': 'ServiceByHcPartyTagCodeDateFilter', 'HE': 'HealthElementByHcPartyTagCodeFilter' }
+const requestToFilterTypeMap = { 'SVC': 'ServiceByHcPartyTagCodeDateFilter', 'HE': 'HealthElementByHcPartyTagCodeFilter', 'INV': 'InvoceByHcPartyCodeDateFilter' }
 
 type Reducer = { reducer: 'count' | 'sum' | 'min' | 'max' | 'mean' | 'd2s' | 'd2a' | 's2d' | 'select', params: Array<string> }
 const reducers = { 'count': (params?: Array<string>) => (acc?: any,x?: any) => acc === undefined ? [0] : [acc[0] + 1],
@@ -197,9 +203,9 @@ async function rewriteFilter(filter: any, first: boolean, mainEntity: string, su
 				reducers: filter.reducers
 			}
 		} else if (filter.$type === 'request') {
+			const rewritten = await rewriteFilter(filter.filter, first, mainEntity, filter.entity || subEntity)
+			const body = { filter: rewritten }
 			if (filter.entity === 'SVC') {
-				const rewritten = await rewriteFilter(filter.filter, first, mainEntity, filter.entity || subEntity)
-				const body = { filter: rewritten }
 				if (debug) console.log('Request SVC: ' + JSON.stringify(body))
 				const servicesOutput = await api.contacticc.filterServicesBy(undefined, undefined, undefined, body) // TODO here and elsewhere or any
 				if (mainEntity === 'PAT') {
@@ -207,16 +213,18 @@ async function rewriteFilter(filter: any, first: boolean, mainEntity: string, su
 					return { $type: 'PatientByIdsFilter', ids: patientIds }
 				}
 			} else if (filter.entity === 'HE') {
-				const rewritten = await rewriteFilter(filter.filter, first, mainEntity, filter.entity || subEntity)
-				const body = { filter: rewritten }
-				// Use a logger instead console.log("Request HE: " + JSON.stringify(body))
+				if (debug) console.log('Request HE: ' + JSON.stringify(body))
 				const helementOutput = await api.helementicc.filterBy(body)
 				if (mainEntity === 'PAT') {
-					// console.log("helement body: " + JSON.stringify(helementOutput))
-					// console.log("helementOutput: " + JSON.stringify(helementOutput))
 					const patientIds: string[] = await helementsToPatientIds(helementOutput)
 					return { $type: 'PatientByIdsFilter', ids: patientIds }
-					// return {}
+				}
+			} else if (filter.entity === 'INV') {
+				console.log('Request INV: ' + JSON.stringify(body))
+				const invoiceOutput = await api.invoiceicc.filterBy(body)
+				if (mainEntity === 'PAT') {
+					const patientIds: string[] = await invoicesToPatientIds(invoiceOutput)
+					return { $type: 'PatientByIdsFilter', ids: patientIds }
 				}
 			}
 			if (filter.entity === 'SUBTRACT') {
@@ -292,10 +300,20 @@ async function servicesToPatientIds(servicesOutput: any): Promise<string[]> {
 	}
 }
 
-async function helementsToPatientIds(helementOutput: any): Promise<string[]> {
+async function helementsToPatientIds(helements: HealthElementDto[]): Promise<string[]> {
 	try {
-		const helements: HealthElementDto[] = helementOutput
 		const extractPromises = helements.map((he: HealthElementDto) => api.cryptoicc.extractKeysFromDelegationsForHcpHierarchy(hcpartyId, he.id || '', he.cryptedForeignKeys || {}))
+		return [...new Set(flatMap(await Promise.all(extractPromises), it => it.extractedKeys))] // set to remove duplicates
+	} catch (error) {
+		console.error('Error while converting health elements to patients')
+		console.error(error)
+		return Promise.reject()
+	}
+}
+
+async function invoicesToPatientIds(invoices: InvoiceDto[]): Promise<string[]> {
+	try {
+		const extractPromises = invoices.map((he: InvoiceDto) => api.cryptoicc.extractKeysFromDelegationsForHcpHierarchy(hcpartyId, he.id || '', he.cryptedForeignKeys || {}))
 		return [...new Set(flatMap(await Promise.all(extractPromises), it => it.extractedKeys))] // set to remove duplicates
 	} catch (error) {
 		console.error('Error while converting health elements to patients')
