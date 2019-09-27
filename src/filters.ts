@@ -13,6 +13,8 @@ import * as Peg from 'pegjs'
 import { Api } from './api'
 import { parse, format, getUnixTime,fromUnixTime } from 'date-fns'
 
+import * as colors from 'colors/safe'
+
 require('node-json-color-stringify')
 
 const fs = require('fs')
@@ -96,7 +98,16 @@ vorpal
 			}
 			const input = args.input.join(' ')
 			this.log('Parsing query: ' + input)
-			const parsedInput = parser.parse(input, { hcpId: hcp.parentId || hcp.id })
+			let parsedInput
+			try {
+				parsedInput = parser.parse(input, { hcpId: hcp.parentId || hcp.id })
+			} catch (e) {
+				e.location && e.location.start.column && this.log(' '.repeat(e.location.start.column + 14) + colors.red('↑'))
+				this.log(colors.red(`Cannot parse : ${e.location !== undefined
+					? 'Line ' + e.location.start.line + ', column ' + e.location.start.column + ': ' + e.message
+					: e.message}`))
+				return
+			}
 			const output = await rewriteFilter(parsedInput, true, '', '')
 			const finalResult = await handleFinalRequest(output)
 			this.log((JSON as any).colorStringify(finalResult.rows, null, ' '))
@@ -125,6 +136,7 @@ vorpal
 
 vorpal
 	.delimiter('icure-reporting$')
+	.history('icrprt')
 	.show()
 
 const grammar = fs.readFileSync('./pegjs', 'utf8')
