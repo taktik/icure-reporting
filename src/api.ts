@@ -27,16 +27,16 @@ export class Api {
 				headers: { [key: string]: string },
 				fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response>
 	) {
-		this._entityreficc = new iccEntityrefApi(host, headers, fetch as any)
-		this._usericc = new IccUserXApi(host, headers, fetch as any)
-		this._hcpartyicc = new IccHcpartyXApi(host, headers, fetch as any)
-		this._cryptoicc = new IccCryptoXApi(host, headers, this._hcpartyicc, new iccPatientApi(host, headers, fetch as any), new WebCrypto())
-		this._contacticc = new IccContactXApi(host, headers, this._cryptoicc, fetch as any)
-		this._invoiceicc = new IccInvoiceXApi(host, headers, this._cryptoicc, this._entityreficc, fetch as any)
-		this._documenticc = new IccDocumentXApi(host, headers, this._cryptoicc, fetch as any)
-		this._helementicc = new IccHelementXApi(host, headers, this._cryptoicc, fetch as any)
-		this._classificationicc = new IccClassificationXApi(host, headers, this._cryptoicc, fetch as any)
-		this._patienticc = new IccPatientXApi(host, headers, this._cryptoicc, this._contacticc, this._helementicc, this._invoiceicc, this._documenticc, this._hcpartyicc, this._classificationicc, ['note'], fetch as any)
+		this._entityreficc = new iccEntityrefApi(host, headers, fetchImpl)
+		this._usericc = new IccUserXApi(host, headers, fetchImpl)
+		this._hcpartyicc = new IccHcpartyXApi(host, headers, fetchImpl)
+		this._cryptoicc = new IccCryptoXApi(host, headers, this._hcpartyicc, new iccPatientApi(host, headers, fetchImpl), new WebCrypto())
+		this._contacticc = new IccContactXApi(host, headers, this._cryptoicc, fetchImpl)
+		this._invoiceicc = new IccInvoiceXApi(host, headers, this._cryptoicc, this._entityreficc, fetchImpl)
+		this._documenticc = new IccDocumentXApi(host, headers, this._cryptoicc, fetchImpl)
+		this._helementicc = new IccHelementXApi(host, headers, this._cryptoicc, fetchImpl)
+		this._classificationicc = new IccClassificationXApi(host, headers, this._cryptoicc, fetchImpl)
+		this._patienticc = new IccPatientXApi(host, headers, this._cryptoicc, this._contacticc, this._helementicc, this._invoiceicc, this._documenticc, this._hcpartyicc, this._classificationicc, ['note'], fetchImpl)
 	}
 
 	get hcpartyicc(): IccHcpartyXApi {

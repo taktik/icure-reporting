@@ -52,6 +52,26 @@
         return filter
     }
 }
+Pipe
+    = req:Request _ pipes:("|" _ Reducer _)* {
+        let f = req;
+        f.reducers = pipes.map(it => it[2]);
+
+        return f
+    }
+
+Reducer
+    = name:STR _ "(" firstParam:STR _ otherParams:( "," _ STR)* _ ")" {
+        return { reducer: name, params: [firstParam].concat(otherParams ? otherParams.map(it => it[2]) : []) }
+    }
+    / name: STR { return {reducer: name} }
+
+Request
+	= neg:"!"? _ entity:STR _ "[" op:OrExpression "]" {
+    	let f = {'$type':'request', 'entity':entity, 'filter':op }
+        return neg && {'$type':'ComplementFilter', 'subSet':f} || f;
+    }
+
 OrExpression
     = head:AndExpression
       tail:(_ "|" _ AndExpression _)* _
@@ -70,12 +90,6 @@ Subtract
 
 Expression
 	= Request / ComparisonExpression
-
-Request
-	= neg:"!"? _ entity:STR _ "[" op:OrExpression "]" {
-    	let f = {'$type':'request', 'entity':entity, 'filter':op }
-        return neg && {'$type':'ComplementFilter', 'subSet':f} || f;
-    }
 
 ComparisonExpression
     = neg:"!"? _ "(" _ op:OrExpression _ ")" {

@@ -1,8 +1,18 @@
 import fetch from 'node-fetch'
-import { HealthElementDto, ServiceDto, PatientDto, UserDto } from 'icc-api'
-import { flatMap } from 'lodash'
+import {
+	HealthElementDto,
+	ServiceDto,
+	PatientDto,
+	UserDto,
+	PatientPaginatedList,
+	InvoicePaginatedList,
+	ContactPaginatedList, ServicePaginatedList
+} from 'icc-api'
+import { flatMap, pick, get } from 'lodash'
 import * as Peg from 'pegjs'
 import { Api } from './api'
+import { parse, format, getUnixTime,fromUnixTime } from 'date-fns'
+
 require('node-json-color-stringify')
 
 const fs = require('fs')
@@ -89,12 +99,7 @@ vorpal
 			const parsedInput = parser.parse(input, { hcpId: hcp.parentId || hcp.id })
 			const output = await rewriteFilter(parsedInput, true, '', '')
 			const finalResult = await handleFinalRequest(output)
-			this.log((JSON as any).colorStringify(finalResult.rows.map((p: PatientDto) => ({
-				id: p.id,
-				firstName: p.firstName,
-				lastName: p.lastName,
-				dateOfBirth: p.dateOfBirth
-			})), null, ' '))
+			this.log((JSON as any).colorStringify(finalResult.rows, null, ' '))
 			const stop = +new Date()
 			this.log(`${finalResult.rows.length} items returned in ${stop - start} ms`)
 		} catch (e) {
@@ -129,6 +134,46 @@ const debug = false
 
 const requestToFilterTypeMap = { 'SVC': 'ServiceByHcPartyTagCodeDateFilter', 'HE': 'HealthElementByHcPartyTagCodeFilter' }
 
+type Reducer = { reducer: 'count' | 'sum' | 'min' | 'max' | 'mean' | 'd2s' | 'd2a' | 's2d' | 'select', params: Array<string> }
+const reducers = { 'count': (params?: Array<string>) => (acc?: any,x?: any) => acc === undefined ? [0] : [acc[0] + 1],
+	'sum': (params?: Array<string>) => (acc?: any,x?: any) => {
+		const val = (params && params[0] ? get(x, params[0]) : x)
+		return acc === undefined ? [0] : [acc[0] + val]
+	},
+	'mean': (params?: Array<string>) => (acc?: any,x?: any,idx?: number) => {
+		const val = (params && params[0] ? get(x, params[0]) : x)
+		return acc === undefined ? [0] : [acc[0] + (val - acc[0]) / ((idx || 0) + 1)]
+	},
+	'min': (params?: Array<string>) => (acc?: any,x?: any,idx?: number) => {
+		const val = (params && params[0] ? get(x, params[0]) : x)
+		return acc === undefined ? [999999999999] : [val < acc[0] ? val : acc[0]]
+	},
+	'max': (params?: Array<string>) => (acc?: any,x?: any,idx?: number) => {
+		const val = (params && params[0] ? get(x, params[0]) : x)
+		return acc === undefined ? [-999999999999] : [val > acc[0] ? val : acc[0]]
+	},
+	's2d': (params?: Array<string>) => (acc?: any,x?: any,idx?: number) => {
+		const val = (params && params[0] ? get(x, params[0]) : x)
+		const d = val && Number(format(fromUnixTime(val), 'yyyyMMdd'))
+		return acc === undefined ? [] : acc.concat([d])
+	},
+	'd2s': (params?: Array<string>) => (acc?: any,x?: any,idx?: number) => {
+		const val = (params && params[0] ? get(x, params[0]) : x)
+		const d = val && getUnixTime(parse(val.toString(), 'yyyyMMdd', 0)) || 0
+		return acc === undefined ? [] : acc.concat([d])
+	},
+	'd2a': (params?: Array<string>) => (acc?: any,x?: any,idx?: number) => {
+		const val = (params && params[0] ? get(x, params[0]) : x)
+		const d = val && getUnixTime(parse(val.toString(), 'yyyyMMdd', 0)) || 0
+		return acc === undefined ? [] : acc.concat([(+new Date() / 1000 - d) / (365.25 * 24 * 3600)])
+	},
+	'meanDate': (params?: Array<string>) => (acc?: any,x?: any,idx?: number) => {
+		const val = (params && params[0] ? get(x, params[0]) : x)
+		const d = val && getUnixTime(parse(val.toString(), 'YYYYMMDD', 0))
+		return acc === undefined ? [0] : [acc[0] + (val - acc[0]) / ((idx || 0) + 1)]
+	},
+	'select': (params?: Array<string>) => (acc?: any,x?: any,idx?: number) => acc === undefined ? [] : acc.concat([params ? pick(x, params) : x])
+}
 async function rewriteFilter(filter: any, first: boolean, mainEntity: string, subEntity: string): Promise<any> {
 	try {
 		if (debug) console.log('Rewriting ' + JSON.stringify(filter))
@@ -136,7 +181,8 @@ async function rewriteFilter(filter: any, first: boolean, mainEntity: string, su
 			return {
 				$type: 'request',
 				entity: filter.entity,
-				filter: await rewriteFilter(filter.filter, false, filter.entity, subEntity)
+				filter: await rewriteFilter(filter.filter, false, filter.entity, subEntity),
+				reducers: filter.reducers
 			}
 		} else if (filter.$type === 'request') {
 			if (filter.entity === 'SVC') {
@@ -198,12 +244,23 @@ async function rewriteFilter(filter: any, first: boolean, mainEntity: string, su
 
 async function handleFinalRequest(filter: any): Promise<any> {
 	if (filter.$type === 'request' && filter.entity && filter.filter) {
+		let res: PatientPaginatedList | InvoicePaginatedList | ContactPaginatedList | ServicePaginatedList
 		if (filter.entity === 'PAT') {
-			return api.patienticc.filterByWithUser(await api.usericc.getCurrentUser(), undefined, undefined, undefined, undefined, undefined, undefined, { filter: filter.filter })
+			res = await api.patienticc.filterByWithUser(await api.usericc.getCurrentUser(), undefined, undefined, undefined, undefined, undefined, undefined, { filter: filter.filter })
 		} else {
 			console.error('Entity not supported yet: ' + filter.entity)
 			return Promise.reject()
 		}
+
+		if (res && res.rows && res.rows.length) {
+			filter.reducers && filter.reducers.forEach((r: Reducer) => {
+				const red = reducers[r.reducer] && reducers[r.reducer](r.params)
+				if (red) {
+					res = Object.assign(res, { rows: (res.rows as Array<any>).reduce(red, red()) })
+				}
+			})
+		}
+		return res
 	} else {
 		console.error('Filter not valid: ' + JSON.stringify(filter, null, ' '))
 		return {}
