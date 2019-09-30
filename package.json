@@ -10,7 +10,7 @@
 		"test": "karma start  --single-run",
 		"prepare": "rimraf dist && npm run build",
 		"precommit": "pretty-quick --staged",
-		"package": "npm run build && pkg ."
+		"package": "npm run build && pkg . && mkdir -p dist/icure-reporting/node_modules/node-webcrypto-ossl/build/Release && mv icure-reporting-* dist/icure-reporting/ && cp node_modules/node-webcrypto-ossl/build/Release/nodessl.node dist/icure-reporting/node_modules/node-webcrypto-ossl/build/Release/nodessl.node"
 	},
 	"bin": "dist/cli.js",
 	"keywords": [],
