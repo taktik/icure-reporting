@@ -9,10 +9,11 @@ import {
 	ServicePaginatedList,
 	UserDto
 } from 'icc-api'
-import { flatMap, get, pick } from 'lodash'
+import { forEachDeep, mapDeep } from './reduceDeep'
+import { flatMap, pick, get, isObject } from 'lodash'
 import * as Peg from 'pegjs'
 import { Api } from './api'
-import { format, fromUnixTime, getUnixTime, parse } from 'date-fns'
+import { format, fromUnixTime, getUnixTime, addMonths, parse, addYears } from 'date-fns'
 
 import * as colors from 'colors/safe'
 import { Args, CommandInstance } from 'vorpal'
@@ -29,7 +30,7 @@ const vorpal = new (require('vorpal'))()
 
 const tmp = require('os').tmpdir()
 console.log('Tmp dir: ' + tmp)
-;(global as any).localStorage = new (require('node-localstorage').LocalStorage)(tmp)
+;(global as any).localStorage = new (require('node-localstorage').LocalStorage)(tmp, 5 * 1024 * 1024 * 1024)
 ;(global as any).Storage = ''
 
 const options = {
@@ -87,9 +88,9 @@ vorpal
 				const hcp = await api.hcpartyicc.getHealthcareParty(u.healthcarePartyId)
 				try {
 					if (hcp.publicKey && await api.cryptoicc.checkPrivateKeyValidity(hcp)) {
-						this.log(`√ ${hcp.id}: ${hcp.firstName} ${hcp.lastName}`)
+						this.log(`${colors.green('√')} ${hcp.id}: ${hcp.firstName} ${hcp.lastName}`)
 					} else {
-						this.log(`X ${hcp.id}: ${hcp.firstName} ${hcp.lastName}`)
+						this.log(`${colors.red('X')} ${hcp.id}: ${hcp.firstName} ${hcp.lastName}`)
 					}
 				} catch (e) {
 					this.log(`X ${hcp.id}: ${hcp.firstName} ${hcp.lastName}`)
@@ -97,6 +98,15 @@ vorpal
 			}
 		}, Promise.resolve())
 	})
+
+function convertVariable(text: string): number | string {
+	if (text.endsWith('m')) {
+		return Number(format(addMonths(new Date(), -Number(text.substr(0, text.length - 1))), 'yyyyMMdd'))
+	} else if (text.endsWith('y')) {
+		return Number(format(addYears(new Date(), -Number(text.substr(0, text.length - 1))), 'yyyyMMdd'))
+	}
+	return text
+}
 
 vorpal
 	.command('query [input...]', 'Queries iCure')
@@ -121,9 +131,24 @@ vorpal
 				return
 			}
 			console.log('Filter pre-rewriting: ' + JSON.stringify(parsedInput))
-			const output = await rewriteFilter(parsedInput, true, '', '')
+
+			const vars: {[index: string]: any} = {}
+			forEachDeep(parsedInput,(obj, parent, idx) => {
+				if (isObject(obj) && (obj as any).variable && (obj as any).variable.startsWith && (obj as any).variable.startsWith('$')) {
+					vars[(obj as any).variable.substr(1)] = ''
+				}
+			})
+
+			await Object.keys(vars).reduce(async (p,v) => {
+				await p
+				vars[v] = convertVariable((await this.prompt({ type: 'input', 'message': `${v} : `, 'name': 'value' })).value)
+			} , Promise.resolve())
+
+			const output = await rewriteFilter(
+				mapDeep(parsedInput,(obj) => (isObject(obj) && (obj as any).variable && (obj as any).variable.startsWith && (obj as any).variable.startsWith('$')) ? vars[(obj as any).variable.substr(1)] : obj)
+				, true, '', '')
 			const finalResult = await handleFinalRequest(output)
-			this.log((JSON as any).colorStringify(finalResult.rows, null, ' '))
+			this.log((JSON as any).colorStringify(finalResult.rows, null, '\t'))
 			const stop = +new Date()
 			this.log(`${finalResult.rows.length} items returned in ${stop - start} ms`)
 		} catch (e) {
@@ -163,7 +188,7 @@ const requestToFilterTypeMap = {
 	'INV': 'InvoiceByHcPartyCodeDateFilter'
 }
 
-type Reducer = { reducer: 'count' | 'sum' | 'min' | 'max' | 'mean' | 'd2s' | 'd2a' | 's2d' | 'select', params: Array<string> }
+type Reducer = { reducer: 'count' | 'sum' | 'min' | 'max' | 'mean' | 'd2s' | 'd2y' | 's2d' | 'select', params: Array<string> }
 const reducers = {
 	'count': (params?: Array<string>) => (acc?: any, x?: any) => acc === undefined ? [0] : [acc[0] + 1],
 	'sum': (params?: Array<string>) => (acc?: any, x?: any) => {
@@ -192,15 +217,10 @@ const reducers = {
 		const d = val && getUnixTime(parse(val.toString(), 'yyyyMMdd', 0)) || 0
 		return acc === undefined ? [] : acc.concat([d])
 	},
-	'd2a': (params?: Array<string>) => (acc?: any, x?: any, idx?: number) => {
+	'd2y': (params?: Array<string>) => (acc?: any, x?: any, idx?: number) => {
 		const val = (params && params[0] ? get(x, params[0]) : x)
 		const d = val && getUnixTime(parse(val.toString(), 'yyyyMMdd', 0)) || 0
 		return acc === undefined ? [] : acc.concat([(+new Date() / 1000 - d) / (365.25 * 24 * 3600)])
-	},
-	'meanDate': (params?: Array<string>) => (acc?: any, x?: any, idx?: number) => {
-		const val = (params && params[0] ? get(x, params[0]) : x)
-		const d = val && getUnixTime(parse(val.toString(), 'YYYYMMDD', 0))
-		return acc === undefined ? [0] : [acc[0] + (val - acc[0]) / ((idx || 0) + 1)]
 	},
 	'select': (params?: Array<string>) => (acc?: any, x?: any, idx?: number) => acc === undefined ? [] : acc.concat([params ? pick(x, params) : x])
 }
@@ -214,8 +234,8 @@ const converters = {
 			codeCode: filter.value,
 			tagType: filter.colonKey,
 			tagCode: filter.colonValue,
-			startValueDate: filter.startDate,
-			endValueDate: filter.endDate
+			startValueDate: (filter.startDate && filter.startDate.length <= 8) ? filter.startDate + '000000' : filter.startDate,
+			endValueDate: (filter.endDate && filter.endDate.length <= 8) ? filter.endDate + '000000' : filter.startDate
 		}),
 	'HE': (filter: any) => Object.assign({},
 		pick(filter, ['healthcarePartyId']),
@@ -229,7 +249,7 @@ const converters = {
 
 async function rewriteFilter(filter: any, first: boolean, mainEntity: string, subEntity: string): Promise<any> {
 	try {
-		if (debug) console.log('Rewriting ' + JSON.stringify(filter))
+		if (debug) console.error('Rewriting ' + JSON.stringify(filter))
 		if (filter.$type === 'request' && first && filter.entity && filter.filter) {
 			return {
 				$type: 'request',
@@ -248,7 +268,7 @@ async function rewriteFilter(filter: any, first: boolean, mainEntity: string, su
 			const body = { filter: rewritten }
 			try {
 				if (filter.entity === 'SVC') {
-					if (debug) console.log('Request SVC: ' + JSON.stringify(body))
+					if (debug) console.error('Request SVC: ' + JSON.stringify(body))
 					const servicesOutput = await api.contacticc.filterServicesBy(undefined, undefined, undefined, body) // TODO here and elsewhere or any
 					if (mainEntity === 'PAT') {
 						const patientIds: string[] = await servicesToPatientIds(servicesOutput)
@@ -262,7 +282,7 @@ async function rewriteFilter(filter: any, first: boolean, mainEntity: string, su
 						return { $type: 'PatientByIdsFilter', ids: patientIds }
 					}
 				} else if (filter.entity === 'INV') {
-					console.log('Request INV: ' + JSON.stringify(body))
+					console.error('Request INV: ' + JSON.stringify(body))
 					const invoiceOutput = await api.invoiceicc.filterBy(body)
 					if (mainEntity === 'PAT') {
 						const patientIds: string[] = await invoicesToPatientIds(invoiceOutput)
@@ -293,7 +313,7 @@ async function rewriteFilter(filter: any, first: boolean, mainEntity: string, su
 					if (debug) console.log('Leaf filter: ' + JSON.stringify(filter))
 					return newFilter
 				}
-				if (debug) console.log('Leaf filter: ' + JSON.stringify(filter))
+				if (debug) console.error('Leaf filter: ' + JSON.stringify(filter))
 				return filter
 			}
 		} else { // never hits this
@@ -365,49 +385,4 @@ async function invoicesToPatientIds(invoices: InvoiceDto[]): Promise<string[]> {
 		console.error(error)
 		return Promise.reject()
 	}
-}
-
-async function run(): Promise<boolean> {
-	// if (!(await tests())) return false
-	try {
-		// TODO labresult instead of diagnosis
-		// const input = "PAT[(age>45y & SVC[ICPC == T89 & :CD-ITEM == diagnosis]) - SVC[LOINC == Hba1c & :CD-ITEM == diagnosis]]"
-		const input = 'PAT[age>45y & SVC[ICPC == T89{>1m} & :CD-ITEM == diagnosis | ICPC == T90] - SVC[ICPC == T90]]'
-		const parsedInput = parser.parse(input)
-		if (debug) console.log('ParsedInput (first test): ' + JSON.stringify(parsedInput))
-		const output = await rewriteFilter(parsedInput, true, '', '')
-		console.log('Rewritten filter (first test): ' + JSON.stringify(output))
-		const finalResult = await handleFinalRequest(output)
-		if (debug) console.log(finalResult)
-		console.log(finalResult.totalSize)
-
-		// femme de 25-65 sans cancer du col, sans procédure 002 ou 003 faite ou refusée(?) dans les 3 dernières années
-		const input2 = 'PAT[age>25y & age<65y - (SVC[CISP == X75{<3y} & :CD-ITEM == diagnosis] | HE[CISP == X75 | HE[CISP == X75]]) - SVC[CISP == X37.002] - SVC[CISP == X37.003]]'
-		// const input2 = "PAT[age>25y & age<65y - SVC[CISP == X75{19000101 -> 20200101} & :CD-ITEM == diagnosis] - SVC[CISP == X37.002] - SVC[CISP == X37.003]]"
-		const parsedInput2 = parser.parse(input2)
-		console.log('-> ParsedInput: ' + JSON.stringify(parsedInput2))
-		const output2 = await rewriteFilter(parsedInput2, true, '', '')
-		console.log('-> Rewritten filter: ' + JSON.stringify(output2))
-		const finalResult2 = await handleFinalRequest(output2)
-		// console.log(finalResult2)
-		console.log('-> ' + finalResult2.totalSize)
-
-		// console.log(JSON.stringify(parsedInput))
-		// const test = await servicesToPatientIds(servicesOutput)
-		// console.log('PatientIds: ' + JSON.stringify(test))
-		// const filter = {"filter":{"$type":"IntersectionFilter","filters":[{"$type":"ServiceByHcPartyTagCodeDateFilter","healthcarePartyId":"782f1bcd-9f3f-408a-af1b-cd9f3f908a98","codeCode":"T89","codeType":"ICPC"},{"$type":"ServiceByHcPartyTagCodeDateFilter","healthcarePartyId":"782f1bcd-9f3f-408a-af1b-cd9f3f908a98","tagCode":"diagnosis","tagType":"CD-ITEM"}]}}
-		// console.log('test: ' + JSON.stringify(await contacticc.filterServicesBy(undefined, undefined, undefined, filter)))
-		// console.log('Initial filter: ' + JSON.stringify(filter) + ', output: ')
-
-		// console.log(JSON.stringify(parsed))
-		// const output = await rewriteFilter(parsed, true, "", "")
-		// console.log('Rewritten filter: ' + JSON.stringify(output))
-		//
-		// const finalResult = await handleFinalRequest(output)
-		// console.log('Final result: ' + JSON.stringify(finalResult))
-	} catch (e) {
-		console.error('Error occurred while running main function')
-		console.error(e)
-	}
-	return true
 }

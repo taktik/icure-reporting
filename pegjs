@@ -15,12 +15,10 @@
         if (rightMost && rightMost.length == 2) {
             let startDate = rightMost[0]
             if (startDate.length > 0) {
-                if (startDate.length <= 8) startDate += "000000"
                 filter.startDate = startDate
             }
             let endDate = rightMost[1]
             if (endDate.length > 0) {
-                if (endDate.length <= 8) endDate += "000000"
                 filter.endDate = endDate
             }
         }
@@ -45,13 +43,13 @@ Pipe
     }
 
 Reducer
-    = name:STR _ "(" firstParam:STR _ otherParams:( "," _ STR)* _ ")" {
+    = name:UQSTR _ "(" firstParam:UQSTR _ otherParams:( "," _ UQSTR)* _ ")" {
         return { reducer: name, params: [firstParam].concat(otherParams ? otherParams.map(it => it[2]) : []) }
     }
     / name: STR { return {reducer: name} }
 
 Request
-	= neg:"!"? _ entity:STR _ "[" op:OrExpression "]" {
+	= neg:"!"? _ entity:UQSTR _ "[" op:OrExpression "]" {
     	let f = {'$type':'request', 'entity':entity, 'filter':op }
         return neg && {'$type':'ComplementFilter', 'subSet':f} || f;
     }
@@ -91,7 +89,7 @@ ComparisonExpression
         case '>':
         	switch(left) {
             	case 'age':
-                	let formattedDate = monthsToBirthDate(right)
+                	let formattedDate = right.variable ? right : monthsToBirthDate(right)
                 	return Object.assign({
                     	'$type':'PatientByHcPartyDateOfBirthBetweenFilter',
                         'healthcarePartyId':hcpId,
@@ -104,6 +102,12 @@ OperandSuffix
     = "{" _ left:OptionalNUM _ "->" _ right:OptionalNUM _ "}" {
         return [left, right]
     }
+    / "{" _ "<" date:VARIABLE _ "}" {
+        return [date, ""]
+    }
+    /  "{" _ ">" date:VARIABLE _ "}" {
+        return ["", date]
+    }
     / "{" _ "<" months:AGE _ "}" {
         return [monthsToBirthDate(months), ""]
     }
@@ -112,20 +116,28 @@ OperandSuffix
     }
     / ""
 
-OptionalNUM = NUM / _
+OptionalNUM = NUM / VARIABLE / _
 
-Operand = QSTR / STR / AGE / NUM
+Operand = QSTR / STR / AGE / NUM / VARIABLE
 Comparison
     = "==" / "!=" / ">" / "<" / "->"
 AGE
 	= value:[0-9]+ unit:[ym] {
     	return unit === 'y' ? Number(value.join(''))*12 : Number(value.join(''))
-
     }
+
 NUM
     = value:[0-9]+ { return value.join('') }
+
 STR
+    = UQSTR
+
+VARIABLE
+    = "$" varName:UQSTR { return { variable: '$' + varName } }
+UQSTR
     = head:[:_a-zA-Z-] tail:[_a-zA-Z0-9-\.]* { return head + (tail && tail.join('') || '')}
+
+
 QSTR
     = "\"" str:[^"]* "\"" { return str.join('') }
 _ "whitespace"
