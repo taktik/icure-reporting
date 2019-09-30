@@ -6,22 +6,22 @@
             'healthcarePartyId':hcpId
         }
         if (left.indexOf(':') === 0) {
-            filter.tagCode = right
-            filter.tagType = left.substr(1)
+            filter.colonKey = left.substr(1)
+            filter.colonValue = right
         } else {
-            filter.codeCode = right
-            filter.codeType = left
+            filter.key = left
+            filter.value = right
         }
         if (rightMost && rightMost.length == 2) {
             let startDate = rightMost[0]
             if (startDate.length > 0) {
                 if (startDate.length <= 8) startDate += "000000"
-                filter.startValueDate = startDate
+                filter.startDate = startDate
             }
             let endDate = rightMost[1]
             if (endDate.length > 0) {
                 if (endDate.length <= 8) endDate += "000000"
-                filter.endValueDate = endDate
+                filter.endDate = endDate
             }
         }
         return filter
@@ -96,7 +96,7 @@ ComparisonExpression
                     	'$type':'PatientByHcPartyDateOfBirthBetweenFilter',
                         'healthcarePartyId':hcpId,
                     }, op === '>' ? {minDateOfBirth:0, maxDateOfBirth:formattedDate} : {minDateOfBirth:formattedDate, maxDateOfBirth:99990101})
-            } // TODO we can't omit min and max DateOfBirth
+            }
     }
 }
 
