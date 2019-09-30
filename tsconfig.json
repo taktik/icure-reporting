@@ -27,6 +27,6 @@
 		"baseUrl": "./"
 	},
 	"files": [
-		"./src/filters.ts"
+		"./src/cli.ts"
 	]
 }

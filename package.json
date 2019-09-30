@@ -4,7 +4,7 @@
 	"description": "",
 	"scripts": {
 		"build": "npm run tslint && tsc",
-		"start": "npm run build && node dist/filters.js",
+		"start": "npm run build && node dist/cli.js",
 		"tslint": "tslint src/*",
 		"test:debug": "karma start",
 		"test": "karma start  --single-run",
@@ -12,10 +12,13 @@
 		"precommit": "pretty-quick --staged",
 		"package": "npm run build && pkg ."
 	},
-	"bin": "dist/filters.js",
+	"bin": "dist/cli.js",
 	"keywords": [],
 	"author": "",
 	"license": "ISC",
+	"pkg": {
+		"assets": "./icure-reporting.pegjs"
+	},
 	"devDependencies": {
 		"@types/node": "^12.7.5",
 		"@types/node-fetch": "^2.5.1",
@@ -48,7 +51,6 @@
 	"dependencies": {
 		"colors": "^1.4.0",
 		"date-fns": "^2.3.0",
-		"deepdash-es": "^4.2.14",
 		"icc-api": "^1.0.177",
 		"lodash": "^4.17.15",
 		"node-fetch": "^2.6.0",
