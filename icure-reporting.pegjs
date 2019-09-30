@@ -49,9 +49,16 @@ Reducer
     / name: STR { return {reducer: name} }
 
 Request
-	= neg:"!"? _ entity:UQSTR _ "[" op:OrExpression "]" {
+	= neg:"!"? _ entity:UQSTR _ "[" op:SubtractExpression "]" {
     	let f = {'$type':'request', 'entity':entity, 'filter':op }
         return neg && {'$type':'ComplementFilter', 'subSet':f} || f;
+    }
+
+SubtractExpression
+    = left:OrExpression
+      right:(_ "-" _ OrExpression _)*
+    {
+        return right.length && {'$type':'request', 'entity':'SUBTRACT', 'left':left, 'right':right[0][3]} || left
     }
 
 OrExpression
@@ -59,22 +66,15 @@ OrExpression
       tail:(_ "|" _ AndExpression _)* _
       { return tail.length && {'$type':'UnionFilter', 'filters':[head].concat(tail.map(it=>it[3]))} || head }
 AndExpression
-    = head:Subtract
-      tail:(_ "&" _ Subtract _)*
+    = head:Expression
+      tail:(_ "&" _ Expression _)*
       { return tail.length && {'$type':'IntersectionFilter', 'filters':[head].concat(tail.map(it=>it[3]))} || head }
-
-Subtract
-    = left:Expression
-      right:(_ "-" _ Expression _)*
-    {
-        return right.length && {'$type':'request', 'entity':'SUBTRACT', 'left':left, 'right':right[0][3]} || left
-    }
 
 Expression
 	= Request / ComparisonExpression
 
 ComparisonExpression
-    = neg:"!"? _ "(" _ op:OrExpression _ ")" {
+    = neg:"!"? _ "(" _ op:SubtractExpression _ ")" {
     return neg && {'$type':'ComplementFilter', 'subSet':op} || op;
 }
 / left:Operand _ op:Comparison _ right:Operand rightMost:OperandSuffix {
