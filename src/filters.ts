@@ -27,7 +27,7 @@ import { Args, CommandInstance } from 'vorpal'
 // TODO & -> | -> -
 // TODO bundle pkg and send it
 
-const localStorage = (global as any).localStorage = new (require('node-localstorage').LocalStorage)('/tmp')
+;(global as any).localStorage = new (require('node-localstorage').LocalStorage)('/tmp')
 ;(global as any).Storage = ''
 
 const options = {
