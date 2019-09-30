@@ -8,8 +8,7 @@ import {
 	InvoicePaginatedList,
 	PatientPaginatedList,
 	ServiceDto,
-	ServicePaginatedList,
-	UserDto
+	ServicePaginatedList
 } from 'icc-api'
 
 export async function filter(parsedInput: any, api: { cryptoicc: IccCryptoXApi, usericc: IccUserXApi, patienticc: IccPatientXApi, contacticc: IccContactXApi, helementicc: IccHelementXApi, invoiceicc: IccInvoiceXApi}, hcpartyId: string, debug: boolean): Promise<PatientPaginatedList> {
