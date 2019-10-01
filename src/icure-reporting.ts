@@ -166,7 +166,7 @@ async function executeInput(cmd: CommandInstance, input: string, path?: string) 
 }
 
 vorpal
-	.command('query [input...]', 'Queries iCure')
+	.command('query [input...]', 'Query iCure. A query typically has the PAT[...] structure. Complex queries should be enclosed between single quotes. Variable ($var) can be used instead of values.')
 	.action(async function(this: CommandInstance, args: Args) {
 		try {
 			const input = args.input.join(' ')
@@ -181,7 +181,7 @@ vorpal
 	})
 
 vorpal
-	.command('export <path> [input...]', 'Queries iCure')
+	.command('export <path> [input...]', 'Export executed query to file (.xls(x) or .json)')
 	.action(async function(this: CommandInstance, args: Args) {
 		try {
 			const input = args.input.join(' ')
@@ -196,7 +196,7 @@ vorpal
 	})
 
 vorpal
-	.command('save <name> <description> [input...]', 'Save iCure query')
+	.command('save <name> <description> [input...]', 'Save iCure query to queries repository. In case no query is provided the latest executed query is saved.')
 	.action(async function(this: CommandInstance, args: Args) {
 		try {
 			const input = args.input && args.input.length && args.input.join(' ') || latestQuery
@@ -224,7 +224,7 @@ vorpal
 	})
 
 vorpal
-	.command('ls', 'Load iCure query')
+	.command('ls', 'List iCure queries on repository server')
 	.action(async function(this: CommandInstance, args: Args) {
 		try {
 			if (options.repoHost) {
@@ -245,7 +245,7 @@ vorpal
 	})
 
 vorpal
-	.command('loadexec <name>', 'Load and executeiCure query')
+	.command('loadexec <name>', 'Load and execute iCure query from repository server')
 	.autocomplete({
 		data: () => !options.repoHost ? Promise.resolve([]) : fetch(`${options.repoHost}/_all_docs`, {
 			method: 'GET',
@@ -274,7 +274,7 @@ vorpal
 	})
 
 vorpal
-	.command('loadexport <name> <path>', 'Load and executeiCure query')
+	.command('loadexport <name> <path>', 'Load, execute and export to file (.xls(x) or .json) iCure query from repository server')
 	.autocomplete({
 		data: () => !options.repoHost ? Promise.resolve([]) : fetch(`${options.repoHost}/_all_docs`, {
 			method: 'GET',
@@ -308,9 +308,9 @@ vorpal
 	})
 
 vorpal
-	.command('ex', 'Example queries')
+	.command('ex', 'Show example queries')
 	.action(async function(this: CommandInstance, args: Args) {
-		this.log('PAT[age<25y]')
+		this.log('PAT[age<15y]')
 		this.log('PAT[(age>45y & SVC[ICPC == T89 & :CD-ITEM == diagnosis]) - SVC[LOINC == Hba1c & :CD-ITEM == diagnosis]]')
 		this.log('PAT[age>25y & age<26y - SVC[CISP == X75{19000101 -> 20200101} & :CD-ITEM == diagnosis] - SVC[CISP == X37.002] - SVC[CISP == X37.003]]')
 		this.log('PAT[age>25y & age<26y - (SVC[CISP == X75{<3y} & :CD-ITEM == diagnosis] | HE[CISP == X75 | HE[CISP == X75]]) - SVC[CISP == X37.002] - SVC[CISP == X37.003]]')
