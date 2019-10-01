@@ -21,7 +21,7 @@ const vorpal = new (require('vorpal'))()
 
 // TODO use a logger
 // TODO patient merges
-// add filter for sex: male, female, unknown
+// TODO add filter for sex: male, female, unknown
 
 const tmp = require('os').tmpdir()
 console.log('Tmp dir: ' + tmp)
