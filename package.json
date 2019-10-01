@@ -11,7 +11,7 @@
 		"test": "karma start  --single-run",
 		"prepare": "rimraf dist && npm run build",
 		"precommit": "pretty-quick --staged",
-		"package": "npm run build && nexe dist/icure-reporting.js"
+		"package": "npm run build && mkdirp dist/icure-reporting/ && nexe dist/icure-reporting.js -r grammar/icure-reporting-parser.pegjs --output dist/icure-reporting/icure-reporting && mkdirp dist/icure-reporting/node_modules/node-webcrypto-ossl/build/Release/ && cp node_modules/node-webcrypto-ossl/build/Release/nodessl.node dist/icure-reporting/node_modules/node-webcrypto-ossl/build/Release/nodessl.node"
 	},
 	"bin": "dist/icure-reporting.js",
 	"keywords": [],
@@ -54,6 +54,7 @@
 		"date-fns": "^2.3.0",
 		"icc-api": "^1.0.177",
 		"lodash": "^4.17.15",
+		"mkdirp": "^0.5.1",
 		"nexe": "^3.3.2",
 		"node-fetch": "^2.6.0",
 		"node-json-color-stringify": "^1.1.0",
