@@ -42,7 +42,7 @@ let api = new Api(options.host, { Authorization: `Basic ${Buffer.from(`${options
 let hcpartyId: string = ''
 let latestQuery: string | null = null
 
-const grammar = fs.readFileSync(path.resolve(__dirname, '../icure-reporting.pegjs'), 'utf8')
+const grammar = fs.readFileSync(path.resolve(__dirname, '../grammar/icure-reporting-parser.pegjs'), 'utf8')
 const parser = Peg.generate(grammar)
 
 api.hcpartyicc.getCurrentHealthcareParty().then(hcp => {

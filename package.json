@@ -3,8 +3,9 @@
 	"version": "1.0.0",
 	"description": "",
 	"scripts": {
-		"build": "npm run tslint && tsc",
-		"start": "npm run build && node dist/cli.js",
+		"peg": "pegjs -o dist/icure-reporting-parser.js grammar/icure-reporting-parser.pegjs",
+		"build": "npm run peg && npm run tslint && tsc",
+		"start": "npm run build && node dist/icure-reporting.js",
 		"tslint": "tslint src/*",
 		"test:debug": "karma start",
 		"test": "karma start  --single-run",
@@ -12,12 +13,12 @@
 		"precommit": "pretty-quick --staged",
 		"package": "npm run build && pkg . && mkdir -p dist/icure-reporting/node_modules/node-webcrypto-ossl/build/Release && mv icure-reporting-* dist/icure-reporting/ && cp node_modules/node-webcrypto-ossl/build/Release/nodessl.node dist/icure-reporting/node_modules/node-webcrypto-ossl/build/Release/nodessl.node"
 	},
-	"bin": "dist/cli.js",
+	"bin": "dist/icure-reporting.js",
 	"keywords": [],
 	"author": "",
 	"license": "ISC",
 	"pkg": {
-		"assets": "./icure-reporting.pegjs"
+		"assets": "./icure-reporting-parser.pegjs"
 	},
 	"devDependencies": {
 		"@types/node": "^12.7.5",

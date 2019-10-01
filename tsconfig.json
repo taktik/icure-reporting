@@ -27,6 +27,6 @@
 		"baseUrl": "./"
 	},
 	"files": [
-		"./src/cli.ts"
+		"./src/icure-reporting.ts"
 	]
 }
