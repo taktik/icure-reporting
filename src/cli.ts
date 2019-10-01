@@ -11,6 +11,7 @@ import { format, addMonths, addYears } from 'date-fns'
 import * as colors from 'colors/safe'
 import { Args, CommandInstance } from 'vorpal'
 import { filter } from './filters'
+import { writeExcel } from './xls'
 
 require('node-json-color-stringify')
 
@@ -117,7 +118,7 @@ function convertVariable(text: string): number | string {
 	return text
 }
 
-async function executeInput(cmd: CommandInstance, input: string) {
+async function executeInput(cmd: CommandInstance, input: string, path?: string) {
 	const start = +new Date()
 	const hcp = await api.hcpartyicc.getCurrentHealthcareParty()
 	if (!hcp) {
@@ -154,6 +155,11 @@ async function executeInput(cmd: CommandInstance, input: string) {
 		hcpartyId,
 		false
 	)
+
+	if (path && finalResult.rows) {
+		path.endsWith('.xls') || path.endsWith('.xlsx') ? writeExcel(finalResult.rows!!, path.replace(/\.xls$/,'.xlsx')) : fs.writeFileSync(path, JSON.stringify(finalResult.rows!!, undefined, ' '))
+	}
+
 	cmd.log((JSON as any).colorStringify(finalResult.rows, null, '\t'))
 	const stop = +new Date()
 	cmd.log(`${(finalResult.rows || []).length} items returned in ${stop - start} ms`)
@@ -168,6 +174,21 @@ vorpal
 			latestQuery = input
 
 			await executeInput(this, input)
+
+		} catch (e) {
+			console.error('Unexpected error', e)
+		}
+	})
+
+vorpal
+	.command('export <path> [input...]', 'Queries iCure')
+	.action(async function(this: CommandInstance, args: Args) {
+		try {
+			const input = args.input.join(' ')
+			this.log('Parsing query: ' + input)
+			latestQuery = input
+
+			await executeInput(this, input, args.path)
 
 		} catch (e) {
 			console.error('Unexpected error', e)
@@ -224,7 +245,7 @@ vorpal
 	})
 
 vorpal
-	.command('load <name>', 'Load iCure query')
+	.command('loadexec <name>', 'Load and executeiCure query')
 	.autocomplete({
 		data: () => !options.repoHost ? Promise.resolve([]) : fetch(`${options.repoHost}/_all_docs`, {
 			method: 'GET',
@@ -252,6 +273,34 @@ vorpal
 		}
 	})
 
+vorpal
+	.command('loadexport <name> <path>', 'Load and executeiCure query')
+	.autocomplete({
+		data: () => !options.repoHost ? Promise.resolve([]) : fetch(`${options.repoHost}/_all_docs`, {
+			method: 'GET',
+			headers: options.repoHeader,
+			redirect: 'follow'
+		}).then(res => res.json()).then(commands => {
+			return commands.rows.map((r: any) => r.id)
+		})
+	}).action(async function(this: CommandInstance, args: Args) {
+		try {
+			if (options.repoHost) {
+				const existing: any = await (await fetch(`${options.repoHost}/${args.name}`, {
+				method: 'GET',
+				headers: options.repoHeader,
+				redirect: 'follow'
+			})).json()
+				if (existing && existing.query) {
+					await executeInput(this, existing.query, args.path)
+				}
+			} else {
+				this.log(colors.red('You are not logged to the repository. Use repo command first.'))
+			}
+		} catch (e) {
+			console.error('Unexpected error', e)
+		}
+	})
 vorpal
 	.command('whoami', 'Logged user info')
 	.action(async function(this: CommandInstance, args: Args) {
