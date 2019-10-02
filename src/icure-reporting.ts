@@ -22,6 +22,7 @@ const vorpal = new (require('vorpal'))()
 // TODO use a logger
 // TODO patient merges
 // TODO add filter for sex: male, female, unknown
+// TODO more examples, with invoices
 
 const tmp = require('os').tmpdir()
 console.log('Tmp dir: ' + tmp)
@@ -135,7 +136,7 @@ async function executeInput(cmd: CommandInstance, input: string, path?: string) 
 			: e.message}`))
 		return
 	}
-	console.log('Filter pre-rewriting: ' + JSON.stringify(parsedInput))
+	// console.log('Filter pre-rewriting: ' + JSON.stringify(parsedInput))
 
 	const vars: { [index: string]: any } = {}
 	forEachDeep(parsedInput, (obj, parent, idx) => {
@@ -307,14 +308,20 @@ vorpal
 		this.log((await api.usericc.getCurrentUser()).login + '@' + options.host)
 	})
 
+// TODO PAT[] (no condition) ?
+// TODO PAT[age == 15] ? (maybe useless)
+// TODO | max(dateOfBirth) -> select name? who is the oldest patient?
 vorpal
 	.command('ex', 'Show example queries')
 	.action(async function(this: CommandInstance, args: Args) {
-		this.log('PAT[age<15y]')
-		this.log('PAT[(age>45y & SVC[ICPC == T89 & :CD-ITEM == diagnosis]) - SVC[LOINC == Hba1c & :CD-ITEM == diagnosis]]')
-		this.log('PAT[age>25y & age<26y - SVC[CISP == X75{19000101 -> 20200101} & :CD-ITEM == diagnosis] - SVC[CISP == X37.002] - SVC[CISP == X37.003]]')
-		this.log('PAT[age>25y & age<26y - (SVC[CISP == X75{<3y} & :CD-ITEM == diagnosis] | HE[CISP == X75 | HE[CISP == X75]]) - SVC[CISP == X37.002] - SVC[CISP == X37.003]]')
-		this.log('PAT[age>45y & SVC[ICPC == T89{>1m} & :CD-ITEM == diagnosis | ICPC == T90] - SVC[ICPC == T90]]')
+		this.log("query 'PAT[age<2y]'")
+		this.log("query 'PAT[age<50y] | count'")
+		this.log("query 'PAT[age>50y] | min(dateOfBirth)'")
+		this.log("query 'PAT[age>75y] | select(firstName, lastName, gender)'")
+		this.log("query 'PAT[(age>45y & SVC[ICPC == T89 & :CD-ITEM == diagnosis]) - SVC[LOINC == Hba1c & :CD-ITEM == diagnosis]]'")
+		this.log("query 'PAT[age>25y & age<26y - SVC[CISP == X75{19500101 -> 20000101} & :CD-ITEM == diagnosis]]'")
+		this.log("query 'PAT[age>25y & age<26y - (SVC[CISP == X75{<3y} & :CD-ITEM == diagnosis] | HE[CISP == X75{<3y}]) - SVC[CISP == X37.002] - SVC[CISP == X37.003]]'")
+		this.log("query 'PAT[age>45y & SVC[ICPC == T89{>6m} & :CD-ITEM == diagnosis | ICPC == T90{<2y} & :CD-ITEM == diagnosis]] | select(lastName)'")
 	})
 
 vorpal

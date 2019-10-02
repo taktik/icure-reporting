@@ -78,7 +78,7 @@ export async function filter(parsedInput: any, api: { cryptoicc: IccCryptoXApi, 
 		'INV': (filter: any) => Object.assign({},
 			pick(filter, ['healthcarePartyId']),
 			{ $type: requestToFilterTypeMap['INV'] },
-			{ code: filter.value, startInvoiceDate: filter.startDate, endInvoiceDate: filter.endDate })
+			{ code: filter.value, startInvoiceDate: filter.startDate, endInvoiceDate: filter.endDate }) // TODO add zeroes?
 	}
 
 	async function rewriteFilter(filter: any, first: boolean, mainEntity: string, subEntity: string): Promise<any> {
@@ -214,7 +214,7 @@ export async function filter(parsedInput: any, api: { cryptoicc: IccCryptoXApi, 
 
 	async function invoicesToPatientIds(invoices: InvoiceDto[]): Promise<string[]> {
 		try {
-			const extractPromises = invoices.map((he: InvoiceDto) => api.cryptoicc.extractKeysFromDelegationsForHcpHierarchy(hcpartyId, he.id || '', he.cryptedForeignKeys || {}))
+			const extractPromises = invoices.map((inv: InvoiceDto) => api.cryptoicc.extractKeysFromDelegationsForHcpHierarchy(hcpartyId, inv.id || '', inv.cryptedForeignKeys || {}))
 			return [...new Set(flatMap(await Promise.all(extractPromises), it => it.extractedKeys))] // set to remove duplicates
 		} catch (error) {
 			console.error('Error while converting health elements to patients')
