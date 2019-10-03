@@ -21,8 +21,7 @@ const vorpal = new (require('vorpal'))()
 
 // TODO use a logger
 // TODO patient merges
-// TODO add filter for sex: male, female, unknown
-// TODO more examples, with invoices
+// TODO more examples, with invoices/health elements/contacts, at first level
 
 const tmp = require('os').tmpdir()
 console.log('Tmp dir: ' + tmp)
@@ -315,9 +314,10 @@ vorpal
 	.command('ex', 'Show example queries')
 	.action(async function(this: CommandInstance, args: Args) {
 		this.log("query 'PAT[age<2y]'")
-		this.log("query 'PAT[age<50y] | count'")
+		this.log("query 'PAT[age<50y & gender == male] | count'")
 		this.log("query 'PAT[age>50y] | min(dateOfBirth)'")
-		this.log("query 'PAT[age>75y] | select(firstName, lastName, gender)'")
+		this.log("query 'PAT[age>75y - gender == female] | select(firstName, lastName, gender)'")
+		this.log("query 'SVC[ICPC == T89 & :CD-ITEM == diagnosis]'")
 		this.log("query 'PAT[(age>45y & SVC[ICPC == T89 & :CD-ITEM == diagnosis]) - SVC[LOINC == Hba1c & :CD-ITEM == diagnosis]]'")
 		this.log("query 'PAT[age>25y & age<26y - SVC[CISP == X75{19500101 -> 20000101} & :CD-ITEM == diagnosis]]'")
 		this.log("query 'PAT[age>25y & age<26y - (SVC[CISP == X75{<3y} & :CD-ITEM == diagnosis] | HE[CISP == X75{<3y}]) - SVC[CISP == X37.002] - SVC[CISP == X37.003]]'")
