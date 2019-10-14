@@ -6,12 +6,13 @@ import {
 	IccHelementXApi,
 	iccPatientApi,
 	IccUserXApi,
-	IccInvoiceXApi, IccDocumentXApi, IccClassificationXApi, iccEntityrefApi
+	IccInvoiceXApi, IccDocumentXApi, IccClassificationXApi, iccEntityrefApi, UserDto
 } from 'icc-api'
 import fetch from 'node-fetch'
 import * as WebCrypto from 'node-webcrypto-ossl'
 
 export class Api {
+
 	private _entityreficc: iccEntityrefApi
 	private _usericc: IccUserXApi
 	private _hcpartyicc: IccHcpartyXApi
@@ -23,10 +24,14 @@ export class Api {
 	private _classificationicc: IccClassificationXApi
 	private _patienticc: IccPatientXApi
 
+	private _currentUser: UserDto | null
+
 	constructor(host: string,
 				headers: { [key: string]: string },
 				fetchImpl: (input: RequestInfo, init?: RequestInit) => Promise<Response>
 	) {
+		this._currentUser = null
+
 		this._entityreficc = new iccEntityrefApi(host, headers, fetchImpl)
 		this._usericc = new IccUserXApi(host, headers, fetchImpl)
 		this._hcpartyicc = new IccHcpartyXApi(host, headers, fetchImpl)
@@ -37,6 +42,8 @@ export class Api {
 		this._helementicc = new IccHelementXApi(host, headers, this._cryptoicc, fetchImpl)
 		this._classificationicc = new IccClassificationXApi(host, headers, this._cryptoicc, fetchImpl)
 		this._patienticc = new IccPatientXApi(host, headers, this._cryptoicc, this._contacticc, this._helementicc, this._invoiceicc, this._documenticc, this._hcpartyicc, this._classificationicc, ['note'], fetchImpl)
+
+		this._usericc.getCurrentUser().then(u => this._currentUser = u)
 	}
 
 	get hcpartyicc(): IccHcpartyXApi {
@@ -77,5 +84,9 @@ export class Api {
 
 	get entityreficc(): iccEntityrefApi {
 		return this._entityreficc
+	}
+
+	get currentUser(): UserDto | null {
+		return this._currentUser
 	}
 }
