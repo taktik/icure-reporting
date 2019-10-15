@@ -41,6 +41,7 @@ const options = {
 let api = new Api(options.host, { Authorization: `Basic ${Buffer.from(`${options.username}:${options.password}`).toString('base64')}` }, fetch as any)
 let hcpartyId: string = ''
 let latestQuery: string | null = null
+let existingVariables = new Map<string, string>()
 
 const grammar = fs.readFileSync(path.resolve(__dirname, '../grammar/icure-reporting-parser.pegjs'), 'utf8')
 const parser = Peg.generate(grammar)
@@ -146,7 +147,12 @@ async function executeInput(cmd: CommandInstance, input: string, path?: string) 
 
 	await Object.keys(vars).reduce(async (p, v) => {
 		await p
-		vars[v] = convertVariable((await cmd.prompt({ type: 'input', 'message': `${v} : `, 'name': 'value' })).value)
+		if (existingVariables.has(v)) {
+			vars[v] = convertVariable(existingVariables.get(v) || '')
+		} else {
+			vars[v] = convertVariable((await cmd.prompt({ type: 'input', 'message': `${v} : `, 'name': 'value' })).value)
+		}
+		console.log(vars[v])
 	}, Promise.resolve())
 
 	const finalResult = await filter(
@@ -301,6 +307,7 @@ vorpal
 			console.error('Unexpected error', e)
 		}
 	})
+
 vorpal
 	.command('whoami', 'Logged user info')
 	.action(async function(this: CommandInstance, args: Args) {
@@ -322,6 +329,40 @@ vorpal
 		this.log("query 'PAT[age>25y & age<26y - SVC[CISP == X75{19500101 -> 20000101} & :CD-ITEM == diagnosis]]'")
 		this.log("query 'PAT[age>25y & age<26y - (SVC[CISP == X75{<3y} & :CD-ITEM == diagnosis] | HE[CISP == X75{<3y}]) - SVC[CISP == X37.002] - SVC[CISP == X37.003]]'")
 		this.log("query 'PAT[age>45y & SVC[ICPC == T89{>6m} & :CD-ITEM == diagnosis | ICPC == T90{<2y} & :CD-ITEM == diagnosis]] | select(lastName)'")
+	})
+
+vorpal
+	.command('grammar', 'Print the grammar used to parse queries')
+	.action(async function(this: CommandInstance, args: Args) {
+		const grammar = fs.readFileSync(path.resolve(__dirname, '../grammar/icure-reporting-parser.pegjs'), 'utf8')
+		this.log(grammar)
+	})
+
+vorpal
+	.command('var [input...]', 'Set a variable, e.g. var x = 5y')
+	.action(async function(this: CommandInstance, args: Args) {
+		const input: string = args.input.join(' ').replace(/'/g, '') // remove single quotes as a workaround to a vorpal bug
+		const elements = input.split(';')
+		elements.forEach(element => {
+			if (element.trim().length > 0) {
+				const cut = element.trim().split('=')
+				if (cut.length === 2) {
+					const variable = cut[0].trim()
+					const value = cut[1].trim()
+					this.log(`Setting variable $${variable} to ${value}`)
+					existingVariables.set(variable, value)
+				} else {
+					this.log('Invalid element: ' + element)
+				}
+			}
+		})
+	})
+
+vorpal
+	.command('variables', 'Print existing variables')
+	.action(async function(this: CommandInstance, args: Args) {
+		const output = Array.from(existingVariables).map(([key, value]) => (key + '=' + value))
+		this.log('var ' + output.join(';'))
 	})
 
 vorpal
