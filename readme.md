@@ -7,4 +7,4 @@ Just run *npm run start*
 - *nvm use 10*
 - *npm run package*
 
-NB: you need to put *./pegjs* and *./node_modules/node-webcrypto-ossl/build/Release/nodessl.node* next to the executable in order to be able to run it. 
+NB: *./node_modules/node-webcrypto-ossl/build/Release/nodessl.node* needs to stay next to the executable or it won't run. 

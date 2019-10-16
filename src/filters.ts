@@ -2,6 +2,7 @@ import { flatMap, pick, get } from 'lodash'
 import { format, fromUnixTime, getUnixTime, parse } from 'date-fns'
 
 import {
+	ContactDto,
 	ContactPaginatedList,
 	HealthElementDto, IccContactXApi, IccCryptoXApi, IccHelementXApi, IccInvoiceXApi, IccPatientXApi, IccUserXApi,
 	InvoiceDto,
@@ -15,7 +16,8 @@ export async function filter(parsedInput: any, api: { cryptoicc: IccCryptoXApi, 
 	const requestToFilterTypeMap = {
 		'SVC': 'ServiceByHcPartyTagCodeDateFilter',
 		'HE': 'HealthElementByHcPartyTagCodeFilter',
-		'INV': 'InvoiceByHcPartyCodeDateFilter'
+		'INV': 'InvoiceByHcPartyCodeDateFilter',
+		'CTC': 'ContactByHcPartyTagCodeDateFilter'
 	}
 
 	type Reducer = { reducer: 'count' | 'sum' | 'min' | 'max' | 'mean' | 'd2s' | 'd2y' | 's2d' | 'select', params: Array<string> }
@@ -78,7 +80,19 @@ export async function filter(parsedInput: any, api: { cryptoicc: IccCryptoXApi, 
 		'INV': (filter: any) => Object.assign({},
 			pick(filter, ['healthcarePartyId']),
 			{ $type: requestToFilterTypeMap['INV'] },
-			{ code: filter.value, startInvoiceDate: filter.startDate, endInvoiceDate: filter.endDate })
+			{ code: filter.value, startInvoiceDate: filter.startDate, endInvoiceDate: filter.endDate }), // TODO add zeroes?
+		'CTC': (filter: any) => Object.assign({},
+			pick(filter, ['healthcarePartyId']),
+			{ $type: requestToFilterTypeMap['CTC'] },
+			{
+				// TODO patientSecretForeignKey(s)
+				codeType: filter.key,
+				codeCode: filter.value,
+				tagType: filter.colonKey,
+				tagCode: filter.colonValue,
+				startServiceValueDate: (filter.startDate && filter.startDate.length <= 8) ? filter.startDate + '000000' : filter.startDate,
+				endServiceValueDate: (filter.endDate && filter.endDate.length <= 8) ? filter.endDate + '000000' : filter.startDate
+			})
 	}
 
 	async function rewriteFilter(filter: any, first: boolean, mainEntity: string, subEntity: string): Promise<any> {
@@ -98,12 +112,12 @@ export async function filter(parsedInput: any, api: { cryptoicc: IccCryptoXApi, 
 					const right = await rewriteFilter(filter.right, first, mainEntity, subEntity)
 					return { $type: 'ComplementFilter', superSet: left, subSet: right }
 				}
-				const rewritten = await rewriteFilter(filter.filter, first, mainEntity, filter.entity || subEntity)
+				const rewritten = await rewriteFilter(filter.filter, first, mainEntity, filter.entity)
 				const body = { filter: rewritten }
 				try {
 					if (filter.entity === 'SVC') {
 						if (debug) console.error('Request SVC: ' + JSON.stringify(body))
-						const servicesOutput = await api.contacticc.filterServicesBy(undefined, undefined, undefined, body) // TODO here and elsewhere or any
+						const servicesOutput = await api.contacticc.filterServicesBy(undefined, undefined, undefined, body)
 						if (mainEntity === 'PAT') {
 							const patientIds: string[] = await servicesToPatientIds(servicesOutput)
 							return { $type: 'PatientByIdsFilter', ids: patientIds }
@@ -112,14 +126,21 @@ export async function filter(parsedInput: any, api: { cryptoicc: IccCryptoXApi, 
 						if (debug) console.log('Request HE: ' + JSON.stringify(body))
 						const helementOutput = await api.helementicc.filterBy(body)
 						if (mainEntity === 'PAT') {
-							const patientIds: string[] = await helementsToPatientIds(helementOutput)
+							const patientIds: string[] = await helementsToPatientIds(helementOutput || [])
 							return { $type: 'PatientByIdsFilter', ids: patientIds }
 						}
 					} else if (filter.entity === 'INV') {
-						console.error('Request INV: ' + JSON.stringify(body))
+						console.log('Request INV: ' + JSON.stringify(body))
 						const invoiceOutput = await api.invoiceicc.filterBy(body)
 						if (mainEntity === 'PAT') {
-							const patientIds: string[] = await invoicesToPatientIds(invoiceOutput)
+							const patientIds: string[] = await invoicesToPatientIds(invoiceOutput || [])
+							return { $type: 'PatientByIdsFilter', ids: patientIds }
+						}
+					} else if (filter.entity === 'CTC') {
+						console.log('Request CTC: ' + JSON.stringify(body))
+						const contactOutput = await api.contacticc.filterByWithUser(await api.usericc.getCurrentUser(), undefined, undefined, undefined, body)
+						if (mainEntity === 'PAT') {
+							const patientIds: string[] = await contactsToPatientIds(contactOutput)
 							return { $type: 'PatientByIdsFilter', ids: patientIds }
 						}
 					}
@@ -143,7 +164,7 @@ export async function filter(parsedInput: any, api: { cryptoicc: IccCryptoXApi, 
 				} else { // TODO maybe other conditions here
 					if (filter.$type === 'PLACEHOLDER') {
 						// @ts-ignore
-						const newFilter = converters[subEntity](filter)
+						const newFilter = converters[subEntity || mainEntity](filter)
 						if (debug) console.log('Leaf filter: ' + JSON.stringify(filter))
 						return newFilter
 					}
@@ -166,6 +187,14 @@ export async function filter(parsedInput: any, api: { cryptoicc: IccCryptoXApi, 
 			let res: PatientPaginatedList | InvoicePaginatedList | ContactPaginatedList | ServicePaginatedList
 			if (filter.entity === 'PAT') {
 				res = await api.patienticc.filterByWithUser(await api.usericc.getCurrentUser(), undefined, undefined, undefined, undefined, undefined, undefined, { filter: filter.filter })
+			} else if (filter.entity === 'HE') {
+				res = await api.helementicc.filterBy({ filter: filter.filter })
+			} else if (filter.entity === 'SVC') {
+				res = await api.contacticc.filterServicesBy(undefined, undefined, undefined, { filter: filter.filter })
+			} else if (filter.entity === 'INV') {
+				res = await api.invoiceicc.filterBy({ filter: filter.filter })
+			} else if (filter.entity === 'CTC') {
+				res = await api.contacticc.filterByWithUser(await api.usericc.getCurrentUser(), undefined, undefined, undefined, { filter: filter.filter })
 			} else {
 				console.error('Entity not supported yet: ' + filter.entity)
 				return Promise.reject()
@@ -190,12 +219,11 @@ export async function filter(parsedInput: any, api: { cryptoicc: IccCryptoXApi, 
 
 	async function servicesToPatientIds(servicesOutput: any): Promise<string[]> {
 		try {
-			const services: ServiceDto[] = servicesOutput.rows
+			const services: ServiceDto[] = servicesOutput.rows || []
 			const extractPromises = services.map((svc: ServiceDto) => api.cryptoicc.extractKeysFromDelegationsForHcpHierarchy(hcpartyId, svc.contactId || '', svc.cryptedForeignKeys || {}))
 			return [...new Set(flatMap(await Promise.all(extractPromises), it => it.extractedKeys))] // set to remove duplicates
-			// return await patienticc.getPatients({ids: patientIds})
 		} catch (error) {
-			console.error('Error while converting services to patients')
+			console.error('Error while converting services to patient ids')
 			console.error(error)
 			return Promise.reject()
 		}
@@ -204,9 +232,9 @@ export async function filter(parsedInput: any, api: { cryptoicc: IccCryptoXApi, 
 	async function helementsToPatientIds(helements: HealthElementDto[]): Promise<string[]> {
 		try {
 			const extractPromises = helements.map((he: HealthElementDto) => api.cryptoicc.extractKeysFromDelegationsForHcpHierarchy(hcpartyId, he.id || '', he.cryptedForeignKeys || {}))
-			return [...new Set(flatMap(await Promise.all(extractPromises), it => it.extractedKeys))] // set to remove duplicates
+			return [...new Set(flatMap(await Promise.all(extractPromises), it => it.extractedKeys))]
 		} catch (error) {
-			console.error('Error while converting health elements to patients')
+			console.error('Error while converting health elements to patient ids')
 			console.error(error)
 			return Promise.reject()
 		}
@@ -214,10 +242,22 @@ export async function filter(parsedInput: any, api: { cryptoicc: IccCryptoXApi, 
 
 	async function invoicesToPatientIds(invoices: InvoiceDto[]): Promise<string[]> {
 		try {
-			const extractPromises = invoices.map((he: InvoiceDto) => api.cryptoicc.extractKeysFromDelegationsForHcpHierarchy(hcpartyId, he.id || '', he.cryptedForeignKeys || {}))
-			return [...new Set(flatMap(await Promise.all(extractPromises), it => it.extractedKeys))] // set to remove duplicates
+			const extractPromises = invoices.map((inv: InvoiceDto) => api.cryptoicc.extractKeysFromDelegationsForHcpHierarchy(hcpartyId, inv.id || '', inv.cryptedForeignKeys || {}))
+			return [...new Set(flatMap(await Promise.all(extractPromises), it => it.extractedKeys))]
 		} catch (error) {
-			console.error('Error while converting health elements to patients')
+			console.error('Error while converting invoices to patient ids')
+			console.error(error)
+			return Promise.reject()
+		}
+	}
+
+	async function contactsToPatientIds(contactsOutput: any): Promise<string[]> {
+		try {
+			const contacts: ContactDto[] = contactsOutput.rows || []
+			const extractPromises = contacts.map((ctc: ContactDto) => api.cryptoicc.extractKeysFromDelegationsForHcpHierarchy(hcpartyId, ctc.id || '', ctc.cryptedForeignKeys || {}))
+			return [...new Set(flatMap(await Promise.all(extractPromises), it => it.extractedKeys))]
+		} catch (error) {
+			console.error('Error while converting contacts to patient ids')
 			console.error(error)
 			return Promise.reject()
 		}

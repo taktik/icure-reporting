@@ -80,6 +80,14 @@ ComparisonExpression
 / left:Operand _ op:Comparison _ right:Operand rightMost:OperandSuffix {
 	switch(op) {
     	case '==':
+    		switch(left) {
+    			case 'gender': 
+    			return {
+    				'$type': 'PatientByHcPartyGenderEducationProfession', 
+    				'healthcarePartyId': hcpId, 
+    				'gender': right
+    			}
+    		}
         	return requestFilter(left, right, rightMost)
         case '!=':
         	return {
