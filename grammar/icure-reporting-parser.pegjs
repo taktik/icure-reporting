@@ -43,10 +43,10 @@ Pipe
     }
 
 Reducer
-    = name:UQSTR _ "(" firstParam:UQSTR _ otherParams:( "," _ UQSTR)* _ ")" {
+    = name:UQSTR _ "(" firstParam:STR _ otherParams:( "," _ STR)* _ ")" {
         return { reducer: name, params: [firstParam].concat(otherParams ? otherParams.map(it => it[2]) : []) }
     }
-    / name: STR { return {reducer: name} }
+    / name: UQSTR { return {reducer: name} }
 
 Request
 	= neg:"!"? _ entity:UQSTR _ "[" op:SubtractExpression "]" {
@@ -118,7 +118,7 @@ OperandSuffix
 
 OptionalNUM = NUM / VARIABLE / _
 
-Operand = QSTR / STR / AGE / NUM / VARIABLE
+Operand = STR / AGE / NUM / VARIABLE
 Comparison
     = "==" / "!=" / ">" / "<" / "->"
 AGE
@@ -130,7 +130,7 @@ NUM
     = value:[0-9]+ { return value.join('') }
 
 STR
-    = UQSTR
+    = QSTR / UQSTR
 
 VARIABLE
     = "$" varName:UQSTR { return { variable: '$' + varName } }

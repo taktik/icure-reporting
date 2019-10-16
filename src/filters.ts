@@ -53,7 +53,7 @@ export async function filter(parsedInput: any, api: { cryptoicc: IccCryptoXApi, 
 			return acc === undefined ? [] : (await acc).concat([(+new Date() / 1000 - d) / (365.25 * 24 * 3600)])
 		},
 		'select': (params?: Array<string>) => async (acc?: any, x?: any, idx?: number) => acc === undefined ? [] : (await acc).concat([params ? pick(x, params) : x]),
-		'share': (params?: Array<string>) => async (acc?: any, x?: any, idx?: number) => acc === undefined || !api.currentUser ? [] : (await acc).concat([await api.patienticc.share(api.currentUser, x, api.currentUser.healthcarePartyId!, params!, params!.reduce((tags, k) => {
+		'share': (params?: Array<string>) => async (acc?: any, x?: any, idx?: number) => acc === undefined || !api.currentUser ? [] : (await acc).concat([await api.patienticc.share(api.currentUser, x.id, api.currentUser.healthcarePartyId!, params!, params!.reduce((tags, k) => {
 			tags[k] = ['all']
 			return tags
 		}, {} as { [key: string]: Array<string> }))])
