@@ -98,7 +98,20 @@ export async function filter(parsedInput: any, api: { cryptoicc: IccCryptoXApi, 
 	async function rewriteFilter(filter: any, first: boolean, mainEntity: string, subEntity: string): Promise<any> {
 		try {
 			if (debug) console.error('Rewriting ' + JSON.stringify(filter))
-			if (filter.$type === 'request' && first && filter.entity && filter.filter) {
+			if (!filter) {
+				if (subEntity === 'PAT') {
+					return {
+						$type: 'PatientByHcPartyFilter',
+						healthcarePartyId: hcpartyId
+					}
+				} else if (subEntity === 'CTC') {
+					return {
+						$type: 'ContactByHcPartyTagCodeDateFilter',
+						healthcarePartyId: hcpartyId
+					}
+				}
+			}
+			if (filter.$type === 'request' && first && filter.entity) {
 				return {
 					$type: 'request',
 					entity: filter.entity,
@@ -109,7 +122,7 @@ export async function filter(parsedInput: any, api: { cryptoicc: IccCryptoXApi, 
 				if (filter.entity === 'SUBTRACT') {
 					if (debug) console.log('Subtract')
 					const left = await rewriteFilter(filter.left, first, mainEntity, subEntity)
-					const right = await rewriteFilter(filter.right, first, mainEntity, subEntity)
+					const right = filter.right.length > 1 ? { $type: 'UnionFilter', filters: await Promise.all(filter.right.map((f: any) => rewriteFilter(f, first, mainEntity, subEntity))) } : await rewriteFilter(filter.right[0], first, mainEntity, subEntity)
 					return { $type: 'ComplementFilter', superSet: left, subSet: right }
 				}
 				const rewritten = await rewriteFilter(filter.filter, first, mainEntity, filter.entity)

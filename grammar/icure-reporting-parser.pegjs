@@ -49,7 +49,7 @@ Reducer
     / name: UQSTR { return {reducer: name} }
 
 Request
-	= neg:"!"? _ entity:UQSTR _ "[" op:SubtractExpression "]" {
+	= neg:"!"? _ entity:UQSTR _ "[" op:SubtractExpression? "]" {
     	let f = {'$type':'request', 'entity':entity, 'filter':op }
         return neg && {'$type':'ComplementFilter', 'subSet':f} || f;
     }
@@ -58,7 +58,7 @@ SubtractExpression
     = left:OrExpression
       right:(_ "-" _ OrExpression _)*
     {
-        return right.length && {'$type':'request', 'entity':'SUBTRACT', 'left':left, 'right':right[0][3]} || left
+        return right.length && {'$type':'request', 'entity':'SUBTRACT', 'left':left, 'right':right.map(s => s[3])} || left
     }
 
 OrExpression
@@ -81,10 +81,10 @@ ComparisonExpression
 	switch(op) {
     	case '==':
     		switch(left) {
-    			case 'gender': 
+    			case 'gender':
     			return {
-    				'$type': 'PatientByHcPartyGenderEducationProfession', 
-    				'healthcarePartyId': hcpId, 
+    				'$type': 'PatientByHcPartyGenderEducationProfession',
+    				'healthcarePartyId': hcpId,
     				'gender': right
     			}
     		}
