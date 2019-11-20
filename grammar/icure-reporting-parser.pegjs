@@ -23,7 +23,7 @@
             if (endDate.length > 0) {
                 filter.endDate = endDate
             } else {
-                filter.endDate = formatDate(new Date())
+                filter.endDate = '99990101'
             }
         }
         return filter
