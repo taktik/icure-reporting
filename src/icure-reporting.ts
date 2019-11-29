@@ -25,9 +25,9 @@ const vorpal = new (require('vorpal'))()
 
 const debug = false
 const tmp = require('os').tmpdir()
-if (debug) console.log('Tmp dir: ' + tmp)
-;(global as any).localStorage = new (require('node-localstorage').LocalStorage)(tmp, 5 * 1024 * 1024 * 1024)
-;(global as any).Storage = ''
+if (debug) { console.log('Tmp dir: ' + tmp) }
+(global as any).localStorage = new (require('node-localstorage').LocalStorage)(tmp, 5 * 1024 * 1024 * 1024);
+(global as any).Storage = ''
 
 const options = {
 	username: 'abdemo',
