@@ -143,14 +143,14 @@ export async function filter(parsedInput: any, api: { cryptoicc: IccCryptoXApi, 
 							return { $type: 'PatientByIdsFilter', ids: patientIds }
 						}
 					} else if (filter.entity === 'INV') {
-						console.log('Request INV: ' + JSON.stringify(body))
+						if (debug) console.log('Request INV: ' + JSON.stringify(body))
 						const invoiceOutput = await api.invoiceicc.filterBy(body)
 						if (mainEntity === 'PAT') {
 							const patientIds: string[] = await invoicesToPatientIds(invoiceOutput || [])
 							return { $type: 'PatientByIdsFilter', ids: patientIds }
 						}
 					} else if (filter.entity === 'CTC') {
-						console.log('Request CTC: ' + JSON.stringify(body))
+						if (debug) console.log('Request CTC: ' + JSON.stringify(body))
 						const contactOutput = await api.contacticc.filterByWithUser(await api.usericc.getCurrentUser(), undefined, undefined, undefined, body)
 						if (mainEntity === 'PAT') {
 							const patientIds: string[] = await contactsToPatientIds(contactOutput)
@@ -196,6 +196,7 @@ export async function filter(parsedInput: any, api: { cryptoicc: IccCryptoXApi, 
 	}
 
 	async function handleFinalRequest(filter: any): Promise<any> {
+		if (debug) console.log('Final request: ' + JSON.stringify(filter))
 		if (filter.$type === 'request' && filter.entity && filter.filter) {
 			let res: PatientPaginatedList | InvoicePaginatedList | ContactPaginatedList | ServicePaginatedList
 			if (filter.entity === 'PAT') {

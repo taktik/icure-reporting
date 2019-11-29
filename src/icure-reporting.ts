@@ -23,8 +23,9 @@ const vorpal = new (require('vorpal'))()
 // TODO patient merges
 // TODO more examples, with invoices/health elements/contacts, at first level
 
+const debug = false
 const tmp = require('os').tmpdir()
-console.log('Tmp dir: ' + tmp)
+if (debug) console.log('Tmp dir: ' + tmp)
 ;(global as any).localStorage = new (require('node-localstorage').LocalStorage)(tmp, 5 * 1024 * 1024 * 1024)
 ;(global as any).Storage = ''
 
@@ -136,7 +137,7 @@ async function executeInput(cmd: CommandInstance, input: string, path?: string) 
 			: e.message}`))
 		return
 	}
-	// console.log('Filter pre-rewriting: ' + JSON.stringify(parsedInput))
+	if (debug) console.log('Filter pre-rewriting: ' + JSON.stringify(parsedInput))
 
 	const vars: { [index: string]: any } = {}
 	forEachDeep(parsedInput, (obj, parent, idx) => {
@@ -159,7 +160,7 @@ async function executeInput(cmd: CommandInstance, input: string, path?: string) 
 		mapDeep(parsedInput, (obj) => (isObject(obj) && (obj as any).variable && (obj as any).variable.startsWith && (obj as any).variable.startsWith('$')) ? vars[(obj as any).variable.substr(1)] : obj),
 		api,
 		hcpartyId,
-		false
+		debug
 	)
 
 	if (path && finalResult.rows) {
