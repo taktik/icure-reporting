@@ -133,6 +133,7 @@ export async function filter(parsedInput: any, api: { cryptoicc: IccCryptoXApi, 
 						const servicesOutput = await api.contacticc.filterServicesBy(undefined, undefined, undefined, body)
 						if (mainEntity === 'PAT') {
 							const patientIds: string[] = await servicesToPatientIds(servicesOutput)
+							if (debug) console.log('Patient Ids: ' + patientIds)
 							return { $type: 'PatientByIdsFilter', ids: patientIds }
 						}
 					} else if (filter.entity === 'HE') {
@@ -234,7 +235,8 @@ export async function filter(parsedInput: any, api: { cryptoicc: IccCryptoXApi, 
 	async function servicesToPatientIds(servicesOutput: any): Promise<string[]> {
 		try {
 			const services: ServiceDto[] = servicesOutput.rows || []
-			const extractPromises = services.map((svc: ServiceDto) => api.cryptoicc.extractKeysFromDelegationsForHcpHierarchy(hcpartyId, svc.contactId || '', svc.cryptedForeignKeys || {}))
+			// tslint:disable-next-line:block-spacing
+			const extractPromises = services.filter((svc: ServiceDto) => svc.contactId === '143de25c-d263-451b-bde2-5cd263e51b21').map((svc: ServiceDto) => { console.log(svc); return api.cryptoicc.extractKeysFromDelegationsForHcpHierarchy(hcpartyId, svc.contactId || '', svc.cryptedForeignKeys || {})})
 			return [...new Set(flatMap(await Promise.all(extractPromises), it => it.extractedKeys))] // set to remove duplicates
 		} catch (error) {
 			console.error('Error while converting services to patient ids')
