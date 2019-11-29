@@ -23,7 +23,7 @@ const vorpal = new (require('vorpal'))()
 // TODO patient merges
 // TODO more examples, with invoices/health elements/contacts, at first level
 
-const debug = true
+const debug = false
 const tmp = require('os').tmpdir()
 if (debug) { console.log('Tmp dir: ' + tmp) }
 (global as any).localStorage = new (require('node-localstorage').LocalStorage)(tmp, 5 * 1024 * 1024 * 1024);
