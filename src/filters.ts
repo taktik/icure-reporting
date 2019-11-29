@@ -247,7 +247,7 @@ export async function filter(parsedInput: any, api: { cryptoicc: IccCryptoXApi, 
 				console.log(svc)
 				return api.cryptoicc.extractKeysFromDelegationsForHcpHierarchy(hcpartyId, svc.contactId || '', svc.cryptedForeignKeys || {})
 			}).map(it => it.catch(e => {
-				console.error('Skipped error while converting service to patient id (might be due to missing patient')
+				console.error('Skipped error while converting service to patient id (might be due to missing patient)')
 				console.error(e)
 				return e
 			}))
