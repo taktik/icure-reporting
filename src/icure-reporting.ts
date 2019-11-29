@@ -74,6 +74,9 @@ vorpal
 		args.host && (options.host = args.host)
 
 		api = new Api(options.host, { Authorization: `Basic ${Buffer.from(`${options.username}:${options.password}`).toString('base64')}` }, fetch as any)
+		api.hcpartyicc.getCurrentHealthcareParty().then(hcp => {
+			hcpartyId = hcp.id
+		})
 	})
 
 vorpal

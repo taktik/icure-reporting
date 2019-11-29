@@ -1,15 +1,22 @@
-import { flatMap, pick, get } from 'lodash'
+import { flatMap, get, pick } from 'lodash'
 import { format, fromUnixTime, getUnixTime, parse } from 'date-fns'
 
 import {
 	ContactDto,
 	ContactPaginatedList,
-	HealthElementDto, IccContactXApi, IccCryptoXApi, IccHelementXApi, IccInvoiceXApi, IccPatientXApi, IccUserXApi,
+	HealthElementDto,
+	IccContactXApi,
+	IccCryptoXApi,
+	IccHelementXApi,
+	IccInvoiceXApi,
+	IccPatientXApi,
+	IccUserXApi,
 	InvoiceDto,
 	InvoicePaginatedList,
 	PatientPaginatedList,
 	ServiceDto,
-	ServicePaginatedList, UserDto
+	ServicePaginatedList,
+	UserDto
 } from 'icc-api'
 
 export async function filter(parsedInput: any, api: { cryptoicc: IccCryptoXApi, usericc: IccUserXApi, patienticc: IccPatientXApi, contacticc: IccContactXApi, helementicc: IccHelementXApi, invoiceicc: IccInvoiceXApi, currentUser: UserDto | null }, hcpartyId: string, debug: boolean): Promise<PatientPaginatedList> {
@@ -133,6 +140,7 @@ export async function filter(parsedInput: any, api: { cryptoicc: IccCryptoXApi, 
 						const servicesOutput = await api.contacticc.filterServicesBy(undefined, undefined, undefined, body)
 						if (mainEntity === 'PAT') {
 							const patientIds: string[] = await servicesToPatientIds(servicesOutput)
+							if (debug) console.log('Patient Ids: ' + patientIds)
 							return { $type: 'PatientByIdsFilter', ids: patientIds }
 						}
 					} else if (filter.entity === 'HE') {
@@ -234,8 +242,16 @@ export async function filter(parsedInput: any, api: { cryptoicc: IccCryptoXApi, 
 	async function servicesToPatientIds(servicesOutput: any): Promise<string[]> {
 		try {
 			const services: ServiceDto[] = servicesOutput.rows || []
-			const extractPromises = services.map((svc: ServiceDto) => api.cryptoicc.extractKeysFromDelegationsForHcpHierarchy(hcpartyId, svc.contactId || '', svc.cryptedForeignKeys || {}))
-			return [...new Set(flatMap(await Promise.all(extractPromises), it => it.extractedKeys))] // set to remove duplicates
+			// tslint:disable-next-line:block-spacing
+			const extractPromises = services.map((svc: ServiceDto) => {
+				return api.cryptoicc.extractKeysFromDelegationsForHcpHierarchy(hcpartyId, svc.contactId || '', svc.cryptedForeignKeys || {})
+			}).map(it => it.catch(e => {
+				console.error('Skipped error while converting service to patient id (might be due to missing patient)')
+				console.error(e)
+				return e
+			}))
+			// @ts-ignore (no smartcast to non-nullable)
+			return [...new Set(flatMap((await Promise.all(extractPromises)).filter(result => !(result instanceof Error)), it => it.extractedKeys))] // set to remove duplicates
 		} catch (error) {
 			console.error('Error while converting services to patient ids')
 			console.error(error)
