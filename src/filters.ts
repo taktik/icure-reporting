@@ -1,15 +1,22 @@
-import { flatMap, pick, get } from 'lodash'
+import { flatMap, get, pick } from 'lodash'
 import { format, fromUnixTime, getUnixTime, parse } from 'date-fns'
 
 import {
 	ContactDto,
 	ContactPaginatedList,
-	HealthElementDto, IccContactXApi, IccCryptoXApi, IccHelementXApi, IccInvoiceXApi, IccPatientXApi, IccUserXApi,
+	HealthElementDto,
+	IccContactXApi,
+	IccCryptoXApi,
+	IccHelementXApi,
+	IccInvoiceXApi,
+	IccPatientXApi,
+	IccUserXApi,
 	InvoiceDto,
 	InvoicePaginatedList,
 	PatientPaginatedList,
 	ServiceDto,
-	ServicePaginatedList, UserDto
+	ServicePaginatedList,
+	UserDto
 } from 'icc-api'
 
 export async function filter(parsedInput: any, api: { cryptoicc: IccCryptoXApi, usericc: IccUserXApi, patienticc: IccPatientXApi, contacticc: IccContactXApi, helementicc: IccHelementXApi, invoiceicc: IccInvoiceXApi, currentUser: UserDto | null }, hcpartyId: string, debug: boolean): Promise<PatientPaginatedList> {
@@ -236,8 +243,16 @@ export async function filter(parsedInput: any, api: { cryptoicc: IccCryptoXApi, 
 		try {
 			const services: ServiceDto[] = servicesOutput.rows || []
 			// tslint:disable-next-line:block-spacing
-			const extractPromises = services.filter((svc: ServiceDto) => svc.contactId === '143de25c-d263-451b-bde2-5cd263e51b21').map((svc: ServiceDto) => { console.log(svc); return api.cryptoicc.extractKeysFromDelegationsForHcpHierarchy(hcpartyId, svc.contactId || '', svc.cryptedForeignKeys || {})})
-			return [...new Set(flatMap(await Promise.all(extractPromises), it => it.extractedKeys))] // set to remove duplicates
+			const extractPromises = services.map((svc: ServiceDto) => {
+				console.log(svc)
+				return api.cryptoicc.extractKeysFromDelegationsForHcpHierarchy(hcpartyId, svc.contactId || '', svc.cryptedForeignKeys || {})
+			}).map(it => it.catch(e => {
+				console.error('Skipped error while converting service to patient id (might be due to missing patient')
+				console.error(e)
+				return e
+			}))
+			// @ts-ignore (no smartcast to non-nullable)
+			return [...new Set(flatMap((await Promise.all(extractPromises)).filter(result => !(result instanceof Error)), it => it.extractedKeys))] // set to remove duplicates
 		} catch (error) {
 			console.error('Error while converting services to patient ids')
 			console.error(error)
